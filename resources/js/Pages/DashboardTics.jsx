@@ -1,63 +1,86 @@
 import React, { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { 
     BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer 
 } from 'recharts';
 
-export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnico, ticketsTabla, listaTecnicos }) {
-    const [vista, setVista] = useState('dashboard'); // 'dashboard' o 'tabla'
+export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnico, ticketsTabla, listaTecnicos, listaAnios, listaEstados, anioSeleccionado }) {
+    const [vista, setVista] = useState('dashboard');
 
     // Estados para los filtros de la tabla
     const [filtroNro, setFiltroNro] = useState('');
     const [filtroTecnico, setFiltroTecnico] = useState('');
+    const [filtroAnioTabla, setFiltroAnioTabla] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState(''); 
     const [filtroFecha, setFiltroFecha] = useState('');
 
-    // Estados para la paginación
+    // Estados para la paginación de la tabla
     const [paginaActual, setPaginaActual] = useState(1);
     const registrosPorPagina = 15;
 
-    // Lógica de filtrado en tiempo real sobre la tabla completa
+    // Estados y lógica para la paginación del GRÁFICO de técnicos
+    const [paginaGrafico, setPaginaGrafico] = useState(1);
+    const tecnicosPorPaginaGrafico = 10;
+
+    const indiceUltimoTecnico = paginaGrafico * tecnicosPorPaginaGrafico;
+    const indicePrimerTecnico = indiceUltimoTecnico - tecnicosPorPaginaGrafico;
+    const graficoPaginado = cerradosPorTecnico.slice(indicePrimerTecnico, indiceUltimoTecnico);
+    const totalPaginasGrafico = Math.ceil(cerradosPorTecnico.length / tecnicosPorPaginaGrafico);
+
+    const handleCambioAnioGraficos = (e) => {
+        const anio = e.target.value;
+        router.get('/', { anio: anio }, { preserveState: true, preserveScroll: true });
+    };
+
+    // Lógica de filtrado en tiempo real para la tabla
     const ticketsFiltrados = ticketsTabla.filter(ticket => {
         const matchNro = filtroNro === '' || String(ticket.Nro_Ticket).includes(filtroNro);
         const matchTecnico = filtroTecnico === '' || ticket.Tecnico === filtroTecnico;
+        const matchAnio = filtroAnioTabla === '' || String(ticket.anio) === String(filtroAnioTabla);
+        const matchEstado = filtroEstado === '' || ticket.Estado === filtroEstado;
         const matchFecha = filtroFecha === '' || ticket.fecha_filtro === filtroFecha;
-        return matchNro && matchTecnico && matchFecha;
+        return matchNro && matchTecnico && matchAnio && matchEstado && matchFecha;
     });
 
-    // Cálculo para cortar los registros de la página actual
     const indiceUltimoRegistro = paginaActual * registrosPorPagina;
     const indicePrimerRegistro = indiceUltimoRegistro - registrosPorPagina;
     const ticketsPaginados = ticketsFiltrados.slice(indicePrimerRegistro, indiceUltimoRegistro);
     const totalPaginas = Math.ceil(ticketsFiltrados.length / registrosPorPagina);
 
-    // Funciones para manejar filtros reseteando la página a 1
-    const handleFiltroNro = (e) => {
-        setFiltroNro(e.target.value);
-        setPaginaActual(1);
-    };
+    const handleFiltroNro = (e) => { setFiltroNro(e.target.value); setPaginaActual(1); };
+    const handleFiltroTecnico = (e) => { setFiltroTecnico(e.target.value); setPaginaActual(1); };
+    const handleFiltroAnioTabla = (e) => { setFiltroAnioTabla(e.target.value); setPaginaActual(1); };
+    const handleFiltroEstado = (e) => { setFiltroEstado(e.target.value); setPaginaActual(1); };
+    const handleFiltroFecha = (e) => { setFiltroFecha(e.target.value); setPaginaActual(1); };
 
-    const handleFiltroTecnico = (e) => {
-        setFiltroTecnico(e.target.value);
-        setPaginaActual(1);
-    };
-
-    const handleFiltroFecha = (e) => {
-        setFiltroFecha(e.target.value);
-        setPaginaActual(1);
-    };
-
-    const limpiarFiltros = () => {
+    const limpiarFiltrosTabla = () => {
         setFiltroNro('');
         setFiltroTecnico('');
+        setFiltroAnioTabla('');
+        setFiltroEstado('');
         setFiltroFecha('');
         setPaginaActual(1);
     };
+
+    // Asignador de colores y emojis para las tarjetas
+    const getEstiloEstado = (nombreEstado) => {
+        const est = (nombreEstado || '').toLowerCase();
+        if (est.includes('cerrado')) return { color: 'text-green-600', bg: 'bg-green-50', icon: '✅' };
+        if (est.includes('pendiente')) return { color: 'text-yellow-600', bg: 'bg-yellow-50', icon: '⏳' };
+        if (est.includes('detenido')) return { color: 'text-red-600', bg: 'bg-red-50', icon: '🛑' };
+        if (est.includes('cliente')) return { color: 'text-orange-600', bg: 'bg-orange-50', icon: '👤' };
+        if (est.includes('staff')) return { color: 'text-blue-600', bg: 'bg-blue-50', icon: '👨‍💻' };
+        return { color: 'text-gray-600', bg: 'bg-gray-50', icon: '📌' }; 
+    };
+
+    // ORDEN EXACTO para forzar el diseño de 3 arriba y 3 abajo
+    const ordenEstados = ['Cerrado', 'Pendiente', 'Respondido por cliente', 'Respondido por el staff', 'Detenido'];
 
     return (
         <div className="flex h-screen bg-gray-50 font-sans">
             <Head title="Panel de Informática" />
 
-            {/* BARRA LATERAL CON EL LOGOTIPO */}
+            {/* BARRA LATERAL */}
             <aside className="w-64 bg-[#002b49] text-white flex flex-col">
                 <div className="p-6 flex items-center justify-center">
                     <img 
@@ -87,7 +110,7 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                 
                 <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center">
                     <h1 className="text-3xl font-bold text-gray-800">
-                        {vista === 'dashboard' ? 'Gráficos' : 'Tabla de Tickets - Informática'}
+                        {vista === 'dashboard' ? 'Gráficos y Métricas' : 'Tabla de Tickets - Informática'}
                     </h1>
                     {vista === 'tabla' && (
                         <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
@@ -101,28 +124,49 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                     {/* VISTA 1: DASHBOARD TÁCTICO */}
                     {vista === 'dashboard' && (
                         <div className="space-y-8">
+                            
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between max-w-sm">
+                                <label className="text-sm font-semibold text-gray-700">Filtrar Gráficos por Año:</label>
+                                <select 
+                                    value={anioSeleccionado}
+                                    onChange={handleCambioAnioGraficos}
+                                    className="border-gray-300 rounded-md shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-1"
+                                >
+                                    <option value="">Todos los años (Histórico)</option>
+                                    {listaAnios.map((anio, idx) => (
+                                        <option key={idx} value={anio}>{anio}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* GRID DINÁMICO DE TARJETAS (3 Columnas = 3 arriba, 3 abajo) */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* 1. Tarjeta Total (Arriba a la Izquierda) */}
                                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-500">Total Histórico</p>
+                                        <p className="text-sm font-medium text-gray-500">Total en el Período</p>
                                         <p className="text-3xl font-bold text-gray-800 mt-1">{kpis.total}</p>
                                     </div>
-                                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl">📊</div>
+                                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xl">📊</div>
                                 </div>
-                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500">Tickets Cerrados</p>
-                                        <p className="text-3xl font-bold text-green-600 mt-1">{kpis.cerrados}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center font-bold text-xl">✅</div>
-                                </div>
-                                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500">Tickets Pendientes</p>
-                                        <p className="text-3xl font-bold text-yellow-600 mt-1">{kpis.pendientes}</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-full flex items-center justify-center font-bold text-xl">⏳</div>
-                                </div>
+
+                                {/* 2. Resto de las tarjetas forzando el orden exacto */}
+                                {ordenEstados.map((nombreEstado, idx) => {
+                                    const estadoData = kpis.por_estado.find(e => e.estado === nombreEstado) || { estado: nombreEstado, cantidad: 0 };
+                                    const estilo = getEstiloEstado(estadoData.estado);
+
+                                    return (
+                                        <div key={idx} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-500">Tickets {estadoData.estado}</p>
+                                                <p className={`text-3xl font-bold ${estilo.color} mt-1`}>{estadoData.cantidad}</p>
+                                            </div>
+                                            <div className={`w-12 h-12 ${estilo.bg} ${estilo.color} rounded-full flex items-center justify-center font-bold text-xl`}>
+                                                {estilo.icon}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             <div className="flex flex-col space-y-8">
@@ -130,27 +174,67 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                                     <h2 className="text-lg font-semibold text-gray-700 mb-4">Incidencias por Tipo de Problema</h2>
                                     <div style={{ height: 350, width: '100%' }}>
                                         <ResponsiveContainer>
-                                            <BarChart data={porTipoProblema} layout="vertical">
+                                            <BarChart data={porTipoProblema} layout="vertical" margin={{ top: 5, right: 40, left: 0, bottom: 5 }}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                                                 <XAxis type="number" axisLine={false} tickLine={false} />
                                                 <YAxis dataKey="tipo" type="category" width={150} axisLine={false} tickLine={false} />
                                                 <Tooltip cursor={{fill: '#f3f4f6'}} />
-                                                <Bar dataKey="cantidad" name="Cantidad" fill="#10b981" radius={[0, 4, 4, 0]} barSize={25} />
+                                                <Bar 
+                                                    dataKey="cantidad" 
+                                                    name="Cantidad" 
+                                                    fill="#10b981" 
+                                                    radius={[0, 4, 4, 0]} 
+                                                    barSize={25} 
+                                                    label={{ position: 'right', fill: '#4b5563', fontSize: 13, fontWeight: 'bold' }} 
+                                                />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
 
+                                {/* CONTENEDOR DEL GRÁFICO DE TÉCNICOS CON PAGINACIÓN Y LABELS */}
                                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                                    <h2 className="text-lg font-semibold text-gray-700 mb-4">Top 10: Carga de Trabajo (Resueltos por Técnico)</h2>
+                                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+                                        <h2 className="text-lg font-semibold text-gray-700">Carga de Trabajo (Resueltos por Técnico)</h2>
+                                        
+                                        {/* CONTROLES DE PAGINACIÓN DEL GRÁFICO */}
+                                        {totalPaginasGrafico > 1 && (
+                                            <div className="flex items-center space-x-3 mt-2 sm:mt-0">
+                                                <button
+                                                    onClick={() => setPaginaGrafico(prev => Math.max(prev - 1, 1))}
+                                                    disabled={paginaGrafico === 1}
+                                                    className="px-3 py-1 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    ◀ Anterior
+                                                </button>
+                                                <span className="text-sm font-medium text-gray-500">
+                                                    {paginaGrafico} / {totalPaginasGrafico}
+                                                </span>
+                                                <button
+                                                    onClick={() => setPaginaGrafico(prev => Math.min(prev + 1, totalPaginasGrafico))}
+                                                    disabled={paginaGrafico === totalPaginasGrafico}
+                                                    className="px-3 py-1 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    Siguiente ▶
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div style={{ height: 350, width: '100%' }}>
                                         <ResponsiveContainer>
-                                            <BarChart data={cerradosPorTecnico} layout="vertical">
+                                            <BarChart data={graficoPaginado} layout="vertical" margin={{ top: 5, right: 40, left: 0, bottom: 5 }}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                                                 <XAxis type="number" axisLine={false} tickLine={false} />
                                                 <YAxis dataKey="tecnico" type="category" width={150} axisLine={false} tickLine={false} />
                                                 <Tooltip cursor={{fill: '#f3f4f6'}} />
-                                                <Bar dataKey="cantidad" name="Tickets Cerrados" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={25} />
+                                                <Bar 
+                                                    dataKey="cantidad" 
+                                                    name="Tickets Cerrados" 
+                                                    fill="#3b82f6" 
+                                                    radius={[0, 4, 4, 0]} 
+                                                    barSize={25} 
+                                                    label={{ position: 'right', fill: '#4b5563', fontSize: 13, fontWeight: 'bold' }} 
+                                                />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -163,8 +247,8 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                     {vista === 'tabla' && (
                         <div className="space-y-6">
                             
-                            {/* BARRA DE FILTROS */}
-                            <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            {/* BARRA DE FILTROS DE LA TABLA */}
+                            <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Nro de Ticket</label>
                                     <input 
@@ -191,7 +275,35 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Fecha de Creación</label>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Año</label>
+                                    <select 
+                                        value={filtroAnioTabla}
+                                        onChange={handleFiltroAnioTabla}
+                                        className="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500"
+                                    >
+                                        <option value="">Todos los años</option>
+                                        {listaAnios.map((anio, idx) => (
+                                            <option key={idx} value={anio}>{anio}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Estado</label>
+                                    <select 
+                                        value={filtroEstado}
+                                        onChange={handleFiltroEstado}
+                                        className="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500"
+                                    >
+                                        <option value="">Todos los estados</option>
+                                        {listaEstados.map((est, idx) => (
+                                            <option key={idx} value={est}>{est}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Fecha específica</label>
                                     <input 
                                         type="date" 
                                         value={filtroFecha}
@@ -202,7 +314,7 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
 
                                 <div>
                                     <button 
-                                        onClick={limpiarFiltros}
+                                        onClick={limpiarFiltrosTabla}
                                         className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-sm py-2 px-4 rounded-md transition-colors border border-gray-300"
                                     >
                                         Limpiar Filtros
