@@ -1,17 +1,25 @@
 <?php
 
+use App\Http\Controllers\ProfileController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
+
+Route::middleware('auth')->group(function () {
+    Route::get('/perfil', [ProfileController::class, 'edit'])->name('profile.edit');
+});
 
 Route::get('/', function (Request $request) {
     $anioSeleccionado = $request->input('anio');
 
+    // Los tickets se leen desde la base de la ticketera del hospital
+    $ticketera = DB::connection('ticketera');
+
     // Base query para los tickets del departamento 24
-    $queryTickets = DB::table('ticket')->where('departamento_id', 24);
-    
-    if (!empty($anioSeleccionado)) {
+    $queryTickets = $ticketera->table('ticket')->where('departamento_id', 24);
+
+    if (! empty($anioSeleccionado)) {
         $queryTickets->whereYear('created_at', $anioSeleccionado);
     }
 
@@ -19,37 +27,37 @@ Route::get('/', function (Request $request) {
     $totalTickets = (clone $queryTickets)->count();
 
     // Obtenemos todos los estados posibles en la base de datos
-    $todosLosEstados = DB::table('estado')->orderBy('id', 'asc')->get();
-    
+    $todosLosEstados = $ticketera->table('estado')->orderBy('id', 'asc')->get();
+
     $porEstado = [];
     foreach ($todosLosEstados as $est) {
         $porEstado[] = [
             'estado' => $est->nombre,
-            'cantidad' => (clone $queryTickets)->where('estado_id', $est->id)->count()
+            'cantidad' => (clone $queryTickets)->where('estado_id', $est->id)->count(),
         ];
     }
 
     $kpis = [
         'total' => $totalTickets,
-        'por_estado' => $porEstado
+        'por_estado' => $porEstado,
     ];
 
     // 1. Tickets por tipo de problema
-    $porTipoProblema = DB::table('ticket as t')
+    $porTipoProblema = $ticketera->table('ticket as t')
         ->leftJoin('tipo_problemas as tp', 't.tipo_problema_id', '=', 'tp.id')
         ->where('t.departamento_id', 24)
-        ->when($anioSeleccionado, fn($q) => $q->whereYear('t.created_at', $anioSeleccionado))
+        ->when($anioSeleccionado, fn ($q) => $q->whereYear('t.created_at', $anioSeleccionado))
         ->select(DB::raw('IFNULL(tp.nombre, "Sin clasificar") as tipo'), DB::raw('COUNT(t.id) as cantidad'))
         ->groupBy('tipo')
         ->orderBy('cantidad', 'desc')
         ->get();
 
     // 2. Carga de Trabajo (Resueltos por Técnico) - Trae TODOS
-    $cerradosPorTecnico = DB::table('ticket as t')
+    $cerradosPorTecnico = $ticketera->table('ticket as t')
         ->leftJoin('estado as e', 't.estado_id', '=', 'e.id')
         ->leftJoin('users as u', 't.cerrado_por', '=', 'u.id')
         ->where('t.departamento_id', 24)
-        ->when($anioSeleccionado, fn($q) => $q->whereYear('t.created_at', $anioSeleccionado))
+        ->when($anioSeleccionado, fn ($q) => $q->whereYear('t.created_at', $anioSeleccionado))
         ->where('e.nombre', 'Cerrado')
         ->whereNotNull('t.cerrado_por')
         ->select(DB::raw('IFNULL(u.name_and_surname, "Usuario Desconocido") as tecnico'), DB::raw('COUNT(t.id) as cantidad'))
@@ -58,7 +66,7 @@ Route::get('/', function (Request $request) {
         ->get();
 
     // 3. Tabla completa
-    $ticketsTabla = DB::table('ticket as t')
+    $ticketsTabla = $ticketera->table('ticket as t')
         ->leftJoin('estado as e', 't.estado_id', '=', 'e.id')
         ->leftJoin('prioridad as p', 't.prioridad_id', '=', 'p.id')
         ->leftJoin('tipo_problemas as tp', 't.tipo_problema_id', '=', 'tp.id')
@@ -79,7 +87,7 @@ Route::get('/', function (Request $request) {
         ->get();
 
     // 4. Listas únicas para filtros
-    $listaTecnicos = DB::table('ticket as t')
+    $listaTecnicos = $ticketera->table('ticket as t')
         ->leftJoin('users as u', 't.cerrado_por', '=', 'u.id')
         ->where('t.departamento_id', 24)
         ->whereNotNull('t.cerrado_por')
@@ -88,7 +96,7 @@ Route::get('/', function (Request $request) {
         ->orderBy('tecnico', 'asc')
         ->pluck('tecnico');
 
-    $listaAnios = DB::table('ticket')
+    $listaAnios = $ticketera->table('ticket')
         ->where('departamento_id', 24)
         ->whereNotNull('created_at')
         ->select(DB::raw('YEAR(created_at) as anio'))
@@ -97,7 +105,7 @@ Route::get('/', function (Request $request) {
         ->pluck('anio');
 
     // Lista única de los estados
-    $listaEstados = DB::table('estado')->orderBy('nombre', 'asc')->pluck('nombre');
+    $listaEstados = $ticketera->table('estado')->orderBy('nombre', 'asc')->pluck('nombre');
 
     return Inertia::render('DashboardTics', [
         'kpis' => $kpis,
@@ -107,6 +115,8 @@ Route::get('/', function (Request $request) {
         'listaTecnicos' => $listaTecnicos,
         'listaAnios' => $listaAnios,
         'listaEstados' => $listaEstados,
-        'anioSeleccionado' => $anioSeleccionado ?? ''
+        'anioSeleccionado' => $anioSeleccionado ?? '',
     ]);
-});
+})->middleware('auth')->name('dashboard');
+
+require __DIR__.'/auth.php';

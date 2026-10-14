@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer
 } from 'recharts';
@@ -22,6 +22,8 @@ const ICONOS = {
     cerrar: 'M6 18 18 6M6 6l12 12',
     izquierda: 'M15.75 19.5 8.25 12l7.5-7.5',
     derecha: 'm8.25 4.5 7.5 7.5-7.5 7.5',
+    llave: 'M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z',
+    salir: 'M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9',
 };
 
 function Icono({ nombre, className = 'w-5 h-5' }) {
@@ -158,6 +160,7 @@ const claseCampo = 'w-full rounded-lg border-slate-300 dark:border-slate-700 bg-
 const claseEtiqueta = 'block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5';
 
 export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnico, ticketsTabla, listaTecnicos, listaAnios, listaEstados, anioSeleccionado }) {
+    const { auth } = usePage().props;
     const [vista, setVista] = useState('dashboard');
 
     const [darkMode, setDarkMode] = useState(() => {
@@ -273,7 +276,7 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                             </button>
                         ))}
                     </nav>
-                    <div className="p-4 border-t border-white/10">
+                    <div className="p-3 border-t border-white/10 space-y-1">
                         <button
                             onClick={() => setDarkMode(!darkMode)}
                             className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-blue-100/80 hover:bg-white/5 hover:text-white transition-colors"
@@ -281,6 +284,31 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                             <Icono nombre={darkMode ? 'sol' : 'luna'} />
                             <span>{darkMode ? 'Modo claro' : 'Modo oscuro'}</span>
                         </button>
+                        <Link
+                            href="/perfil"
+                            className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-blue-100/80 hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                            <Icono nombre="llave" />
+                            <span>Cambiar contraseña</span>
+                        </Link>
+                        <Link
+                            href="/logout"
+                            method="post"
+                            as="button"
+                            className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-blue-100/80 hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                            <Icono nombre="salir" />
+                            <span>Cerrar sesión</span>
+                        </Link>
+                        <div className="mt-2 flex items-center gap-3 rounded-xl bg-white/5 px-3 py-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-300/20 text-xs font-bold text-sky-200">
+                                {auth.user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-white">{auth.user.name}</p>
+                                <p className="truncate text-xs text-blue-100/60">{auth.user.email}</p>
+                            </div>
+                        </div>
                     </div>
                 </aside>
 
@@ -314,13 +342,31 @@ export default function DashboardTics({ kpis, porTipoProblema, cerradosPorTecnic
                                     </label>
                                 )}
 
-                                <button
-                                    onClick={() => setDarkMode(!darkMode)}
-                                    className="md:hidden rounded-lg border border-slate-200 dark:border-slate-700 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Cambiar modo oscuro/claro"
-                                >
-                                    <Icono nombre={darkMode ? 'sol' : 'luna'} />
-                                </button>
+                                <div className="md:hidden flex items-center gap-1">
+                                    <button
+                                        onClick={() => setDarkMode(!darkMode)}
+                                        className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                        title="Cambiar modo oscuro/claro"
+                                    >
+                                        <Icono nombre={darkMode ? 'sol' : 'luna'} />
+                                    </button>
+                                    <Link
+                                        href="/perfil"
+                                        className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                        title="Cambiar contraseña"
+                                    >
+                                        <Icono nombre="llave" />
+                                    </Link>
+                                    <Link
+                                        href="/logout"
+                                        method="post"
+                                        as="button"
+                                        className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                        title="Cerrar sesión"
+                                    >
+                                        <Icono nombre="salir" />
+                                    </Link>
+                                </div>
                             </div>
                         </div>
 
